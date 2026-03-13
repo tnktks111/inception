@@ -1,0 +1,77 @@
+services:
+  mariadb:
+    build:
+      context: ./requirements/mariadb
+      dockerfile: Dockerfile
+    restart: always
+    env_file: .env
+    volumes:
+      - type: volume
+        source: db-vol
+        target: /var/lib/mysql
+    networks:
+      docker-network:
+        ipv4_address: 172.20.0.4
+
+  wordpress:
+    build:
+      context: ./requirements/wordpress
+      dockerfile: Dockerfile
+    restart: always
+    env_file: .env
+    depends_on:
+      - mariadb
+    volumes:
+      - type: volume
+        source: wp-vol
+        target: /var/www/html
+    networks:
+      docker-network:
+        ipv4_address: 172.20.0.3
+
+  nginx:
+    build:
+      context: ./requirements/nginx
+      dockerfile: Dockerfile
+    restart: always
+    env_file: .env
+    depends_on:
+      - wordpress
+    volumes:
+      - type: volume
+        source: wp-vol
+        target: /var/www/html
+    ports:
+      - "443:443"
+    networks:
+      docker-network:
+        ipv4_address: 172.20.0.2
+    secrets:
+      - nginx-server-crt
+      - nginx-server-key
+
+volumes:
+  db-vol:
+    driver_opts:
+      type: none
+      device: /home/ttanaka42/data/mariadb
+      o: bind
+  wp-vol:
+    driver_opts:
+      type: none
+      device: /home/ttanaka42/data/wordpress
+      o: bind
+
+networks:
+  docker-network:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.20.0.0/24
+
+secrets:
+  nginx-server-crt:
+    file: ../secrets/nginx/server.crt
+  nginx-server-key:
+    file: ../secrets/nginx/server.key
