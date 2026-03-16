@@ -19,6 +19,12 @@ services:
     secrets:
       - db-password
       - db-root-password
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin --socket=/run/mysqld/mysqld.sock -uroot --password=\"$$(cat /run/secrets/db-root-password)\" ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 20s
 
   wordpress:
     image: wordpress
@@ -32,7 +38,8 @@ services:
       WP_ADMIN_PASSWORD_FILE: /run/secrets/wp-admin-password
       WP_PASSWORD_FILE: /run/secrets/wp-user-password
     depends_on:
-      - mariadb
+      mariadb:
+        condition: service_healthy
     volumes:
       - type: volume
         source: wp-vol
@@ -44,6 +51,12 @@ services:
       - db-password
       - wp-admin-password
       - wp-user-password
+    healthcheck:
+      test: ["CMD-SHELL", "bash -ec 'test -f /var/www/html/wp-config.php && exec 3<>/dev/tcp/127.0.0.1/9000'"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 30s
 
   nginx:
     image: nginx
@@ -53,7 +66,8 @@ services:
     restart: always
     env_file: .env
     depends_on:
-      - wordpress
+      wordpress:
+        condition: service_healthy
     volumes:
       - type: volume
         source: wp-vol
@@ -66,6 +80,39 @@ services:
     secrets:
       - nginx-server-crt
       - nginx-server-key
+
+  adminer:
+    image: adminer
+    build:
+      context: ./requirements/bonus/adminer
+      dockerfile: Dockerfile
+    restart: always
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    networks:
+      docker-network:
+        ipv4_address: 172.20.0.5
+
+  static_website:
+    image: static_website
+    build:
+      context: ./requirements/bonus/static_website
+      dockerfile: Dockerfile
+    restart: always
+    networks:
+      docker-network:
+        ipv4_address: 172.20.0.6
+
+  redis:
+    image: redis
+    build:
+      context: ./requirements/bonus/redis/
+      dockerfile: Dockerfile
+    restart: always
+    networks:
+      docker-network:
+        ipv4_address: 172.20.0.7
 
 volumes:
   db-vol:

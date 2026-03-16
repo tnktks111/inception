@@ -49,11 +49,6 @@ if [ ! -f "/var/www/html/wp-config.php" ]; then
 	cp -r /usr/src/wordpress/. /var/www/html/
 	chown -R www-data:www-data /var/www/html
 
-	while ! MARIADB_PWD="${MYSQL_PASSWORD}" mariadb -h "${WORDPRESS_DB_HOST:-mariadb}" -u"${MYSQL_USER}" -e "SELECT 1;" >/dev/null 2>&1; do
-		echo "Waiting for MariaDB to start..."
-		sleep 2
-	done
-
 	cd /var/www/html
 
 	wp config create --allow-root --dbname="${MYSQL_DATABASE}" --dbuser="${MYSQL_USER}" --dbpass="${MYSQL_PASSWORD}" --dbhost="${WORDPRESS_DB_HOST:-mariadb}"
@@ -61,6 +56,12 @@ if [ ! -f "/var/www/html/wp-config.php" ]; then
 	wp core install --allow-root --url="https://${DOMAIN_NAME}" --title="${WP_TITLE}" --admin_user="${WP_ADMIN_USER}" --admin_password="${WP_ADMIN_PASSWORD}" --admin_email="${WP_ADMIN_EMAIL}"
 
 	wp user create --allow-root "${WP_USER}" "${WP_USER_EMAIL}" --user_pass="${WP_PASSWORD}" --role=author
+
+	echo "Setting up Redis cache..."
+
+	wp config set WP_REDIS_HOST redis --allow-root
+	wp plugin install redis-cache --activate --allow-root
+	wp redis enable --allow-root
 
 	chown -R www-data:www-data /var/www/html
 

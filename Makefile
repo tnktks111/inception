@@ -26,6 +26,20 @@ up:
 up-mac:
 	docker compose -f $(MAC_COMPOSE_FILE) up -d --build
 
+status:
+	@echo -e "$(CYAN)Compose services ($(COMPOSE_FILE))$(RESET)"
+	@DATA_DIR="$(DATA_DIR)" docker compose -f $(COMPOSE_FILE) ps
+	@echo
+	@echo -e "$(CYAN)Container health$(RESET)"
+	@docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}' | grep -E 'srcs-|NAME' | cat
+
+status-mac:
+	@echo -e "$(CYAN)Compose services ($(MAC_COMPOSE_FILE))$(RESET)"
+	@docker compose -f $(MAC_COMPOSE_FILE) ps
+	@echo
+	@echo -e "$(CYAN)Container health$(RESET)"
+	@docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}' | grep -E 'srcs-|NAME' | cat
+
 down:
 	DATA_DIR="$(DATA_DIR)" docker compose -f $(COMPOSE_FILE) down
 
@@ -76,4 +90,4 @@ setup:
 
 	@echo -e "$(GREEN)Done!$(RESET)"
 
-.PHONY: all up up-mac down down-mac clean clean-mac fclean prune re secure-secrets setup
+.PHONY: all up up-mac status status-mac down down-mac clean clean-mac fclean prune re secure-secrets setup

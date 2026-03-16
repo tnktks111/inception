@@ -3,7 +3,7 @@ FROM debian:12
 
 WORKDIR /usr/src
 
-RUN <<-EOF1
+RUN <<-EOF
 	set -eux
 	apt-get update
 	apt-get install -y --no-install-recommends \
@@ -33,7 +33,7 @@ RUN <<-EOF1
 
 	apt-get clean
 	rm -rf /var/lib/apt/lists/*
-EOF1
+EOF
 
 COPY --chmod=755 setup.sh /tmp/setup.sh
 
