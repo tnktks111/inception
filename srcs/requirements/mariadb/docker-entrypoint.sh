@@ -104,6 +104,7 @@ docker_init_database_dir() {
 	mysql_note "Initializing database files"
 	mariadb-install-db \
 		--datadir="$DATADIR" \
+		--auth-root-authentication-method=normal \
 		--skip-test-db
 	mysql_note "Database files initialized"
 }
@@ -111,7 +112,6 @@ docker_init_database_dir() {
 # Sets up global environment variables required for database configuration.
 # Globals:
 #   DATADIR (sets)
-#   MYSQL_ROOT_HOST (sets)
 #   MYSQL_DATABASE (sets)
 #   MYSQL_USER (sets)
 #   MYSQL_PASSWORD (sets)
@@ -123,11 +123,32 @@ docker_init_database_dir() {
 docker_setup_env() {
 	DATADIR="/var/lib/mysql"
 
-	_mariadb_file_env 'MYSQL_ROOT_HOST' '%'
 	_mariadb_file_env 'MYSQL_DATABASE'
 	_mariadb_file_env 'MYSQL_USER'
 	_mariadb_file_env 'MYSQL_PASSWORD'
 	_mariadb_file_env 'MYSQL_ROOT_PASSWORD'
+}
+
+docker_verify_minimum_env() {
+	if [ -z "${MYSQL_ROOT_PASSWORD:-}" ]; then
+		mysql_error "MYSQL_ROOT_PASSWORD is required for first-time database initialization"
+	fi
+
+	if [ -n "${MYSQL_USER:-}" ] && [ -z "${MYSQL_PASSWORD:-}" ]; then
+		mysql_error "MYSQL_PASSWORD must be set when MYSQL_USER is specified"
+	fi
+
+	if [ -n "${MYSQL_PASSWORD:-}" ] && [ -z "${MYSQL_USER:-}" ]; then
+		mysql_error "MYSQL_USER must be set when MYSQL_PASSWORD is specified"
+	fi
+}
+
+mysql_escape_string() {
+	printf '%s' "$1" | sed "s/'/''/g"
+}
+
+mysql_escape_identifier() {
+	printf '%s' "$1" | sed 's/`/``/g'
 }
 
 # Executes SQL commands using the MariaDB client as the root user.
@@ -138,7 +159,7 @@ docker_setup_env() {
 # Outputs:
 #   Writes query results or client output to stdout/stderr.
 docker_process_sql() {
-	MYSQL_PWD="${MYSQL_ROOT_PASSWORD}" mariadb --user=root "$@"
+	mariadb --protocol=socket --socket=/run/mysqld/mysqld.sock --user=root "$@"
 }
 
 # Configures initial users, privileges, and databases via SQL.
@@ -152,15 +173,41 @@ docker_process_sql() {
 # Outputs:
 #   Writes execution notes to stdout.
 docker_setup_db() {
+	local root_password_escaped
+	local database_escaped
+	local user_escaped
+	local password_escaped
+
+	root_password_escaped="$(mysql_escape_string "${MYSQL_ROOT_PASSWORD}")"
+	database_escaped="$(mysql_escape_identifier "${MYSQL_DATABASE:-}")"
+	user_escaped="$(mysql_escape_string "${MYSQL_USER:-}")"
+	password_escaped="$(mysql_escape_string "${MYSQL_PASSWORD:-}")"
+
 	mysql_note "Securing system users (equivalent to running mysql_secure_installation)"
 	docker_process_sql --database=mysql <<EOF
-ALTER USER 'root'@'localhost' IDENTIFIED BY '${MYSQL_ROOT_PASSWORD}';
+ALTER USER 'root'@'localhost' IDENTIFIED BY '${root_password_escaped}';
 DROP USER IF EXISTS root@'127.0.0.1', root@'::1';
-CREATE DATABASE IF NOT EXISTS \`${MYSQL_DATABASE}\`;
-CREATE USER IF NOT EXISTS '${MYSQL_USER}'@'%' IDENTIFIED BY '${MYSQL_PASSWORD}';
-GRANT ALL PRIVILEGES ON \`${MYSQL_DATABASE}\`.* TO '${MYSQL_USER}'@'%';
 FLUSH PRIVILEGES;
 EOF
+
+	if [ -n "${MYSQL_DATABASE:-}" ]; then
+		docker_process_sql --database=mysql <<EOF
+CREATE DATABASE IF NOT EXISTS \`${database_escaped}\`;
+EOF
+	fi
+
+	if [ -n "${MYSQL_USER:-}" ]; then
+		docker_process_sql --database=mysql <<EOF
+CREATE USER IF NOT EXISTS '${user_escaped}'@'%' IDENTIFIED BY '${password_escaped}';
+EOF
+	fi
+
+	if [ -n "${MYSQL_DATABASE:-}" ] && [ -n "${MYSQL_USER:-}" ]; then
+		docker_process_sql --database=mysql <<EOF
+GRANT ALL PRIVILEGES ON \`${database_escaped}\`.* TO '${user_escaped}'@'%';
+FLUSH PRIVILEGES;
+EOF
+	fi
 }
 
 # Starts a temporary MariaDB server without networking for initialization.
@@ -178,16 +225,18 @@ docker_temp_server_start() {
 	mysqld --datadir="$DATADIR" --skip-networking &
 	MARIADB_PID=$!
 
+	local started=0
 	local i
 	for i in {30..0}; do
 		if mariadb-admin ping --silent; then
+			started=1
 			break
 		fi
 		sleep 1
 	done
 
-	if [ "$i" = 0 ]; then
-		mysql_error "Unable to start server."
+	if [ "$started" = 0 ]; then
+		mysql_error "Unable to start temporary server."
 	fi
 }
 
@@ -211,6 +260,8 @@ docker_temp_server_stop() {
 # Outputs:
 #   Writes progress and status messages to stdout.
 docker_mariadb_init() {
+	docker_verify_minimum_env
+
 	docker_init_database_dir
 
 	mysql_note "Starting temporary server"

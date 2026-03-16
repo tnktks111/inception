@@ -19,9 +19,6 @@ RUN <<EOF1
 
     mkdir /docker-entrypoint-initdb.d
 
-    mkdir -p /var/lib/mysql/mysql
-    touch /var/lib/mysql/mysql/user.frm
-
     export DEBIAN_FRONTEND=noninteractive
     apt-get install -y --no-install-recommends mariadb-server
     apt-get clean
@@ -44,6 +41,6 @@ RUN <<EOF1
 EOF1
 
 
-COPY docker-entrypoint.sh /usr/local/bin/
+COPY --chmod=755 docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
-ENTRYPOINT ["docker-entrypoint.sh"]
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]

@@ -69,15 +69,9 @@ services:
 
 volumes:
   db-vol:
-    driver_opts:
-      type: none
-      o: bind
-      device: ${DATA_DIR}/mariadb
+    name: inception_db-vol-mac
   wp-vol:
-    driver_opts:
-      type: none
-      o: bind
-      device: ${DATA_DIR}/wordpress
+    name: inception_wp-vol-mac
 
 networks:
   docker-network:
