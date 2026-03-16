@@ -114,6 +114,43 @@ services:
       docker-network:
         ipv4_address: 172.20.0.7
 
+  ftp:
+    image: ftp
+    build:
+      context: ./requirements/bonus/ftp
+      dockerfile: Dockerfile
+    restart: always
+    env_file: .env
+    environment:
+      FTP_PASSWORD_FILE: /run/secrets/ftp-password
+    depends_on:
+      wordpress:
+        condition: service_healthy
+    volumes:
+      - type: volume
+        source: wp-vol
+        target: /var/www/html
+    ports:
+      - "21:21"
+      - "21100-21110:21100-21110"
+    networks:
+      docker-network:
+        ipv4_address: 172.20.0.8
+    secrets:
+      - ftp-password
+
+  homer:
+    image: homer
+    build:
+      context: ./requirements/bonus/homer
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "8888:80"
+    networks:
+      docker-network:
+        ipv4_address: 172.20.0.9
+
 volumes:
   db-vol:
     driver_opts:
@@ -147,3 +184,5 @@ secrets:
     file: ../secrets/nginx/server.crt
   nginx-server-key:
     file: ../secrets/nginx/server.key
+  ftp-password:
+    file: ../secrets/ftp_password.txt

@@ -1,0 +1,32 @@
+---
+title: "Inception Dashboard"
+subtitle: "42 Tokyo - Infrastructure Portal"
+logo: "assets/logo.png"
+header: true
+columns: "3"
+theme: default
+
+services:
+  - name: "Core Services & Bonuses"
+    icon: "fas fa-server"
+    items:
+      - name: "WordPress"
+        logo: "assets/tools/wordpress.png"
+        subtitle: "Main Web Application"
+        tag: "Core"
+        url: "https://ttanaka.42.fr"
+        target: "_blank"
+        
+      - name: "Adminer"
+        logo: "assets/tools/database.png"
+        subtitle: "MariaDB Manager"
+        tag: "Bonus"
+        url: "https://ttanaka.42.fr/adminer"
+        target: "_blank"
+        
+      - name: "Portfolio"
+        icon: "fas fa-user"
+        subtitle: "Static Website"
+        tag: "Bonus"
+        url: "https://ttanaka.42.fr/portfolio"
+        target: "_blank"
