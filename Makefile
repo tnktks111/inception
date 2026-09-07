@@ -13,22 +13,19 @@ COMPOSE_FILE = srcs/docker-compose.yml
 MAC_COMPOSE_FILE = srcs/docker-compose.mac.yml
 LOGIN ?= ttanaka
 DOMAIN_NAME ?= $(LOGIN).42.fr
-DATA_DIR ?= /home/$(LOGIN)/data
-export DATA_DIR
+DOCKER_DATA_ROOT ?= /home/$(LOGIN)/data/docker
 
 all: up
 
-up:
-	@mkdir -p $(DATA_DIR)/mariadb
-	@mkdir -p $(DATA_DIR)/wordpress
-	DATA_DIR="$(DATA_DIR)" docker compose -f $(COMPOSE_FILE) up -d --build
+up: check-data-root
+	docker compose -f $(COMPOSE_FILE) up -d --build
 
 up-mac:
 	docker compose -f $(MAC_COMPOSE_FILE) up -d --build
 
 status:
 	@echo -e "$(CYAN)Compose services ($(COMPOSE_FILE))$(RESET)"
-	@DATA_DIR="$(DATA_DIR)" docker compose -f $(COMPOSE_FILE) ps
+	docker compose -f $(COMPOSE_FILE) ps
 	@echo
 	@echo -e "$(CYAN)Container health$(RESET)"
 	@docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}' | grep -E 'srcs-|NAME' | cat
@@ -41,23 +38,38 @@ status-mac:
 	@docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}' | grep -E 'srcs-|NAME' | cat
 
 down:
-	DATA_DIR="$(DATA_DIR)" docker compose -f $(COMPOSE_FILE) down
+	docker compose -f $(COMPOSE_FILE) down
 
 down-mac:
 	docker compose -f $(MAC_COMPOSE_FILE) down
 
 clean:
-	DATA_DIR="$(DATA_DIR)" docker compose -f $(COMPOSE_FILE) down -v --rmi all --remove-orphans
+	docker compose -f $(COMPOSE_FILE) down \
+		--rmi all \
+		--remove-orphans
 
 clean-mac:
-	docker compose -f $(MAC_COMPOSE_FILE) down -v --rmi all --remove-orphans
+	docker compose -f $(MAC_COMPOSE_FILE) down \
+		--rmi all \
+		--remove-orphans
 
-fclean: clean
+fclean: 	
+	docker compose -f $(COMPOSE_FILE) down \
+		-v \
+		--rmi all \
+		--remove-orphans
+
+fclean-mac:
+	docker compose -f $(MAC_COMPOSE_FILE) down \
+		-v \
+		--rmi all \
+		--remove-orphans
 
 prune:
 	docker system prune -a --volumes -f
 
-re: fclean all
+re: fclean
+	@$(MAKE) all
 
 secure-secrets:
 	@mkdir -p ./secrets ./secrets/my-ca ./secrets/nginx
@@ -90,4 +102,13 @@ setup:
 
 	@echo -e "$(GREEN)Done!$(RESET)"
 
-.PHONY: all up up-mac status status-mac down down-mac clean clean-mac fclean prune re secure-secrets setup
+check-data-root:
+	@actual="$$(docker info --format '{{.DockerRootDir}}')"; \
+	if [ "$$actual" != "$(DOCKER_DATA_ROOT)" ]; then \
+		echo "Error: Docker data-root is '$$actual'"; \
+		echo "Expected: $(DOCKER_DATA_ROOT)"; \
+		echo "Configure /etc/docker/daemon.json first."; \
+		exit 1; \
+	fi
+
+.PHONY: all up up-mac status status-mac down down-mac clean clean-mac fclean fclean-mac prune re secure-secrets setup check-data-root
