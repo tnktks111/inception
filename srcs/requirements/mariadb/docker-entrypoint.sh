@@ -130,17 +130,19 @@ docker_setup_env() {
 }
 
 docker_verify_minimum_env() {
-	if [ -z "${MYSQL_ROOT_PASSWORD:-}" ]; then
-		mysql_error "MYSQL_ROOT_PASSWORD is required for first-time database initialization"
-	fi
+	local var_name
 
-	if [ -n "${MYSQL_USER:-}" ] && [ -z "${MYSQL_PASSWORD:-}" ]; then
-		mysql_error "MYSQL_PASSWORD must be set when MYSQL_USER is specified"
-	fi
-
-	if [ -n "${MYSQL_PASSWORD:-}" ] && [ -z "${MYSQL_USER:-}" ]; then
-		mysql_error "MYSQL_USER must be set when MYSQL_PASSWORD is specified"
-	fi
+	for var_name in \
+		MYSQL_ROOT_PASSWORD \
+		MYSQL_DATABASE \
+		MYSQL_USER \
+		MYSQL_PASSWORD
+	do
+		if [ -z "${!var_name:-}" ]; then
+			mysql_error \
+				"$var_name is required for first-time database initialization"
+		fi
+	done
 }
 
 mysql_escape_string() {
@@ -185,29 +187,17 @@ docker_setup_db() {
 
 	mysql_note "Securing system users (equivalent to running mysql_secure_installation)"
 	docker_process_sql --database=mysql <<EOF
-ALTER USER 'root'@'localhost' IDENTIFIED BY '${root_password_escaped}';
-DROP USER IF EXISTS root@'127.0.0.1', root@'::1';
-FLUSH PRIVILEGES;
-EOF
-
-	if [ -n "${MYSQL_DATABASE:-}" ]; then
-		docker_process_sql --database=mysql <<EOF
 CREATE DATABASE IF NOT EXISTS \`${database_escaped}\`;
-EOF
-	fi
-
-	if [ -n "${MYSQL_USER:-}" ]; then
-		docker_process_sql --database=mysql <<EOF
 CREATE USER IF NOT EXISTS '${user_escaped}'@'%' IDENTIFIED BY '${password_escaped}';
-EOF
-	fi
 
-	if [ -n "${MYSQL_DATABASE:-}" ] && [ -n "${MYSQL_USER:-}" ]; then
-		docker_process_sql --database=mysql <<EOF
 GRANT ALL PRIVILEGES ON \`${database_escaped}\`.* TO '${user_escaped}'@'%';
+
+ALTER USER 'root'@'localhost' IDENTIFIED BY '${root_password_escaped}';
+
+DROP USER IF EXISTS root@'127.0.0.1', root@'::1';
+
 FLUSH PRIVILEGES;
 EOF
-	fi
 }
 
 # Starts a temporary MariaDB server without networking for initialization.
