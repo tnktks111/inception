@@ -15,6 +15,13 @@ LOGIN ?= ttanaka
 DOMAIN_NAME ?= $(LOGIN).42.fr
 DOCKER_DATA_ROOT ?= /home/$(LOGIN)/data/docker
 
+SECRET_NAMES := \
+	db_password \
+	db_root_password \
+	wp_admin_password \
+	wp_user_password \
+	ftp_password
+
 all: up
 
 up: check-data-root
@@ -77,7 +84,21 @@ secure-secrets:
 	@find ./secrets -type f \( -name '*.key' -o -name '*.txt' \) -exec chmod 600 {} +
 	@find ./secrets -type f \( -name '*.crt' -o -name '*.csr' -o -name '*.srl' \) -exec chmod 644 {} +
 
-setup:
+init-secrets:
+	@install -m 700 -d ./secrets
+	@for name in $(SECRET_NAMES); do \
+		file="./secrets/$${name}.txt"; \
+		if [ -s "$$file" ]; then \
+			echo "Keeping existing $$file"; \
+		else \
+			umask 077; \
+			openssl rand -hex 24 > "$$file"; \
+			echo "Created $$file"; \
+		fi; \
+	done
+	@$(MAKE) secure-secrets
+
+setup: init-secrets
 	@echo -e "$(GREEN)Setting up certificate...$(RESET)"
 	@echo -e "$(CYAN)[1/2] Generating private certificate authority...$(RESET)"
 	@mkdir -p ./secrets/my-ca
@@ -111,4 +132,4 @@ check-data-root:
 		exit 1; \
 	fi
 
-.PHONY: all up up-mac status status-mac down down-mac clean clean-mac fclean fclean-mac prune re secure-secrets setup check-data-root
+.PHONY: all up up-mac status status-mac down down-mac clean clean-mac fclean fclean-mac prune re secure-secrets init-secrets setup check-data-root
