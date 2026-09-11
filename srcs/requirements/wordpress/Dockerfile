@@ -10,6 +10,7 @@ RUN <<-EOF
 		ca-certificates \
 		wget unzip \
 		mariadb-client \
+		redis-tools \
 		php8.2-fpm \
 		php8.2-cli \
 		php8.2-common \

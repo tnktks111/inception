@@ -39,6 +39,8 @@ services:
     depends_on:
       mariadb:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     volumes:
       - type: volume
         source: wp-vol
@@ -109,6 +111,12 @@ services:
     restart: always
     networks:
       - backend
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+      start_period: 5s
 
   ftp:
     image: ftp

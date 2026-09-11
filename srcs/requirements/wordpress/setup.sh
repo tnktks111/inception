@@ -27,46 +27,116 @@ require_env() {
 	fi
 }
 
+wait_for_redis() {
+    local attempt
+    local reply
+
+    echo "Waiting for Redis at ${redis_host}:6379..."
+
+    for attempt in {1..30}; do
+        if reply="$(redis-cli -h "$redis_host" ping 2>/dev/null)" \
+            && [ "$reply" = "PONG" ]; then
+            echo "Redis is ready."
+            return 0
+        fi
+
+        sleep 2
+    done
+
+    echo "Error: Redis did not become ready" >&2
+    return 1
+}
+
+file_env MYSQL_PASSWORD
+file_env WP_ADMIN_PASSWORD
+file_env WP_PASSWORD
+
+for var_name in \
+    DOMAIN_NAME \
+    MYSQL_DATABASE \
+    MYSQL_USER \
+    MYSQL_PASSWORD \
+    WP_TITLE \
+    WP_ADMIN_USER \
+    WP_ADMIN_PASSWORD \
+    WP_ADMIN_EMAIL \
+    WP_USER \
+    WP_PASSWORD \
+    WP_USER_EMAIL
+do
+    require_env "$var_name"
+done
+
+redis_host="${WP_REDIS_HOST:-redis}"
+
 mkdir -p /var/www/html
-if [ ! -f "/var/www/html/wp-config.php" ]; then
-	file_env MYSQL_PASSWORD
-	file_env WP_ADMIN_PASSWORD
-	file_env WP_PASSWORD
 
-	require_env DOMAIN_NAME
-	require_env MYSQL_DATABASE
-	require_env MYSQL_USER
-	require_env MYSQL_PASSWORD
-	require_env WP_TITLE
-	require_env WP_ADMIN_USER
-	require_env WP_ADMIN_PASSWORD
-	require_env WP_ADMIN_EMAIL
-	require_env WP_USER
-	require_env WP_PASSWORD
-	require_env WP_USER_EMAIL
-
-	echo "Setting up WordPress..."
-	cp -r /usr/src/wordpress/. /var/www/html/
-	chown -R www-data:www-data /var/www/html
-
-	cd /var/www/html
-
-	wp config create --allow-root --dbname="${MYSQL_DATABASE}" --dbuser="${MYSQL_USER}" --dbpass="${MYSQL_PASSWORD}" --dbhost="${WORDPRESS_DB_HOST:-mariadb}"
-
-	wp core install --allow-root --url="https://${DOMAIN_NAME}" --title="${WP_TITLE}" --admin_user="${WP_ADMIN_USER}" --admin_password="${WP_ADMIN_PASSWORD}" --admin_email="${WP_ADMIN_EMAIL}"
-
-	wp user create --allow-root "${WP_USER}" "${WP_USER_EMAIL}" --user_pass="${WP_PASSWORD}" --role=author
-
-	echo "Setting up Redis cache..."
-
-	wp config set WP_REDIS_HOST redis --allow-root
-	wp plugin install redis-cache --activate --allow-root
-	wp redis enable --allow-root
-
-	chown -R www-data:www-data /var/www/html
-
-	echo "WordPress setup done !"
+if [ ! -f /var/www/html/wp-load.php ]; then
+    echo "Copying WordPress files..."
+    cp -r /usr/src/wordpress/. /var/www/html/
 fi
+
+chown -R www-data:www-data /var/www/html
+cd /var/www/html
+
+wait_for_redis
+
+if [ ! -f wp-config.php ]; then
+    echo "Creating wp-config.php..."
+
+    wp config create \
+        --allow-root \
+        --dbname="${MYSQL_DATABASE}" \
+        --dbuser="${MYSQL_USER}" \
+        --dbpass="${MYSQL_PASSWORD}" \
+        --dbhost="${WORDPRESS_DB_HOST:-mariadb}"
+fi
+
+if ! wp core is-installed --allow-root 2>/dev/null; then
+    echo "Installing WordPress..."
+
+    wp core install \
+        --allow-root \
+        --url="https://${DOMAIN_NAME}" \
+        --title="${WP_TITLE}" \
+        --admin_user="${WP_ADMIN_USER}" \
+        --admin_password="${WP_ADMIN_PASSWORD}" \
+        --admin_email="${WP_ADMIN_EMAIL}"
+fi
+
+if ! wp user get "${WP_USER}" --allow-root >/dev/null 2>&1; then
+    echo "Creating WordPress user..."
+
+    wp user create \
+        --allow-root \
+        "${WP_USER}" \
+        "${WP_USER_EMAIL}" \
+        --user_pass="${WP_PASSWORD}" \
+        --role=author
+fi
+
+wp config set \
+    WP_REDIS_HOST \
+    "$redis_host" \
+    --allow-root
+
+if ! wp plugin is-installed redis-cache --allow-root; then
+    wp plugin install redis-cache --allow-root
+fi
+
+if ! wp plugin is-active redis-cache --allow-root; then
+    wp plugin activate redis-cache --allow-root
+fi
+
+if [ ! -f wp-content/object-cache.php ]; then
+    wp redis enable --allow-root
+fi
+
+chown -R www-data:www-data /var/www/html
+
+unset MYSQL_PASSWORD WP_ADMIN_PASSWORD WP_PASSWORD
+
+echo "WordPress setup done!"
 
 mkdir -p /run/php
 chown www-data:www-data /run/php
