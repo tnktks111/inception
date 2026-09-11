@@ -10,12 +10,12 @@ This guide is for the person operating the stack or administering its WordPress 
 | WordPress administration | Manage posts, users, themes, and plugins | `https://ttanaka.42.fr/wp-admin/` |
 | Adminer | Browser-based MariaDB administration | `https://ttanaka.42.fr/adminer` |
 | Static portfolio | Bonus static website | `https://ttanaka.42.fr/portfolio` |
-| Homer | Bonus service dashboard | `http://<VM_IP>:8888` |
+| Homer | Bonus service dashboard | `https://ttanaka.42.fr/homer/` |
 | FTP | File access to WordPress `wp-content` | `ttanaka.42.fr`, port `21`; passive ports `21100-21110` |
 | MariaDB | WordPress database; internal only | Service name `mariadb`, port `3306` inside the Docker network |
 | Redis | WordPress object cache; internal only | Service name `redis`, port `6379` inside the Docker network |
 
-NGINX is the only public entry point for the mandatory web stack. FTP and Homer expose extra ports because they are bonus services.
+NGINX is the public entry point for every HTTP service, including Homer. FTP exposes additional ports because it uses a separate non-HTTP protocol.
 
 ## Before the first start
 
@@ -76,6 +76,10 @@ Open `https://ttanaka.42.fr/adminer` and use:
 
 Use the application database account for routine work instead of the MariaDB root account.
 
+### Homer
+
+Open `https://ttanaka.42.fr/homer/` to view the bonus service dashboard. Homer is served through NGINX on the same TLS-protected port as the other web services; it does not publish a separate host port.
+
 ### FTP
 
 Configure an FTP client with:
@@ -132,6 +136,7 @@ Test the main HTTPS endpoint with the project CA:
 
 ```sh
 curl --fail --cacert secrets/my-ca/my-ca.crt https://ttanaka.42.fr/
+curl --fail --cacert secrets/my-ca/my-ca.crt https://ttanaka.42.fr/homer/
 ```
 
 Inspect recent logs when a service is not healthy:

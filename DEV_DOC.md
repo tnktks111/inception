@@ -4,7 +4,7 @@ This guide describes how to prepare, build, operate, inspect, and reset the proj
 
 ## Architecture and source layout
 
-Docker Compose builds one Debian 12 image for each service and connects the containers to the user-defined `docker-network` bridge (`172.20.0.0/24`). Service names provide internal DNS names. NGINX routes HTTPS traffic to WordPress/PHP-FPM, Adminer, and the static site. WordPress connects to MariaDB and Redis. FTP shares the WordPress named volume.
+Docker Compose builds one Debian 12 image for each service and connects containers only to the user-defined bridge networks they require. `frontend` connects NGINX to its web upstreams, the externally isolated `backend` connects WordPress and Adminer to MariaDB and Redis, and `ftp-network` contains FTP. Service names provide internal DNS names, so fixed container IP addresses are unnecessary. NGINX routes HTTPS traffic to WordPress/PHP-FPM, Adminer, the static site, and Homer. FTP shares the WordPress named volume without joining either web network.
 
 Important paths:
 
@@ -29,7 +29,7 @@ Prepare a Linux VM with:
 - GNU Make
 - OpenSSL
 - permission to configure and restart the Docker daemon
-- at least ports `443`, `21`, `21100-21110`, and `8888` available for this stack
+- ports `443`, `21`, and `21100-21110` available for this stack
 - network access during image builds to download Debian packages, WordPress, WP-CLI, Adminer, and Homer
 
 Confirm the tools:
@@ -181,10 +181,12 @@ Useful model and network checks:
 
 ```sh
 docker compose -f srcs/docker-compose.yml config
-docker network inspect srcs_docker-network
+docker network inspect srcs_frontend
+docker network inspect srcs_backend
+docker network inspect srcs_ftp-network
 ```
 
-The actual Compose network name includes the Compose project name, which is normally derived from the `srcs` directory.
+The actual Compose network names include the Compose project name, which is normally derived from the `srcs` directory. `backend` is declared with `internal: true`, so MariaDB and Redis do not receive a route to external networks. WordPress and Adminer join both application networks because they must accept requests from the frontend side and connect to MariaDB on the backend side. FTP joins only `ftp-network`; sharing `wp-vol` does not require network connectivity to WordPress.
 
 ## Persistent data and volumes
 

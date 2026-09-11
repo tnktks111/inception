@@ -1,10 +1,12 @@
 FROM debian:12
 
-WORKDIR /var/www/html
+WORKDIR /var/www/html/homer
 
 RUN <<-EOF
+	set -eu
 	apt-get update
 	apt-get install -y --no-install-recommends \
+	ca-certificates \
 	wget \
 	unzip \
 	lighttpd
@@ -17,7 +19,7 @@ RUN <<-EOF
 	chown -R www-data:www-data /var/www/html
 EOF
 
-COPY config.yml /var/www/html/assets/config.yml
+COPY config.yml /var/www/html/homer/assets/config.yml
 
 CMD ["lighttpd", "-D", "-f", "/etc/lighttpd/lighttpd.conf"]
 

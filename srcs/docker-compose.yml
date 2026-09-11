@@ -14,8 +14,7 @@ services:
         source: db-vol
         target: /var/lib/mysql
     networks:
-      docker-network:
-        ipv4_address: 172.20.0.4
+      - backend
     secrets:
       - db-password
       - db-root-password
@@ -45,8 +44,8 @@ services:
         source: wp-vol
         target: /var/www/html
     networks:
-      docker-network:
-        ipv4_address: 172.20.0.3
+      - frontend
+      - backend
     secrets:
       - db-password
       - wp-admin-password
@@ -75,8 +74,7 @@ services:
     ports:
       - "443:443"
     networks:
-      docker-network:
-        ipv4_address: 172.20.0.2
+      - frontend
     secrets:
       - nginx-server-crt
       - nginx-server-key
@@ -91,8 +89,8 @@ services:
       mariadb:
         condition: service_healthy
     networks:
-      docker-network:
-        ipv4_address: 172.20.0.5
+      - frontend
+      - backend
 
   static_website:
     image: static_website
@@ -101,8 +99,7 @@ services:
       dockerfile: Dockerfile
     restart: always
     networks:
-      docker-network:
-        ipv4_address: 172.20.0.6
+      - frontend
 
   redis:
     image: redis
@@ -111,8 +108,7 @@ services:
       dockerfile: Dockerfile
     restart: always
     networks:
-      docker-network:
-        ipv4_address: 172.20.0.7
+      - backend
 
   ftp:
     image: ftp
@@ -123,9 +119,6 @@ services:
     env_file: .env
     environment:
       FTP_PASSWORD_FILE: /run/secrets/ftp-password
-    depends_on:
-      wordpress:
-        condition: service_healthy
     volumes:
       - type: volume
         source: wp-vol
@@ -134,8 +127,7 @@ services:
       - "21:21"
       - "21100-21110:21100-21110"
     networks:
-      docker-network:
-        ipv4_address: 172.20.0.8
+      - ftp-network
     secrets:
       - ftp-password
 
@@ -145,11 +137,8 @@ services:
       context: ./requirements/bonus/homer
       dockerfile: Dockerfile
     restart: always
-    ports:
-      - "8888:80"
     networks:
-      docker-network:
-        ipv4_address: 172.20.0.9
+      - frontend
 
 volumes:
   db-vol:
@@ -158,12 +147,13 @@ volumes:
     name: inception-wp
 
 networks:
-  docker-network:
+  frontend:
     driver: bridge
-    ipam:
-      driver: default
-      config:
-        - subnet: 172.20.0.0/24
+  backend:
+    driver: bridge
+    internal: true
+  ftp-network:
+    driver: bridge
 
 secrets:
   db-password:
