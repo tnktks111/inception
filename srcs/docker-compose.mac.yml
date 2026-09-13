@@ -1,6 +1,6 @@
 services:
   mariadb:
-    image: mariadb
+    image: mariadb:bookworm
     build:
       context: ./requirements/mariadb
       dockerfile: Dockerfile
@@ -26,7 +26,7 @@ services:
       start_period: 20s
 
   wordpress:
-    image: wordpress
+    image: wordpress:bookworm
     build:
       context: ./requirements/wordpress
       dockerfile: Dockerfile
@@ -58,7 +58,7 @@ services:
       start_period: 30s
 
   nginx:
-    image: nginx
+    image: nginx:bookworm
     build:
       context: ./requirements/nginx
       dockerfile: Dockerfile
@@ -80,7 +80,7 @@ services:
       - nginx-server-key
 
   adminer:
-    image: adminer
+    image: adminer:bookworm
     build:
       context: ./requirements/bonus/adminer
       dockerfile: Dockerfile
@@ -93,7 +93,7 @@ services:
       - backend
 
   static_website:
-    image: static_website
+    image: static_website:bookworm
     build:
       context: ./requirements/bonus/static_website
       dockerfile: Dockerfile
@@ -102,7 +102,7 @@ services:
       - frontend
 
   redis:
-    image: redis
+    image: redis:bookworm
     build:
       context: ./requirements/bonus/redis/
       dockerfile: Dockerfile
@@ -111,7 +111,7 @@ services:
       - backend
 
   ftp:
-    image: ftp
+    image: ftp:bookworm
     build:
       context: ./requirements/bonus/ftp
       dockerfile: Dockerfile
@@ -132,7 +132,7 @@ services:
       - ftp-password
 
   homer:
-    image: homer
+    image: homer:bookworm
     build:
       context: ./requirements/bonus/homer
       dockerfile: Dockerfile
