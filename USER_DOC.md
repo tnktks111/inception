@@ -164,3 +164,5 @@ Do not use `make fclean`, `make re`, or `make prune` for routine operation:
 - `make fclean` removes the containers, images, and both named volumes, destroying the database and WordPress files.
 - `make re` performs `fclean` before rebuilding, so it also destroys persistent project data.
 - `make prune` removes unused Docker data across the entire Docker daemon, not only this project.
+
+`make purge-secrets` deletes every local password, certificate, and private key under `secrets/`. It is not part of the normal cleanup flow. After running it, use `make setup` to generate replacement credentials and TLS material, then replace the previously trusted CA certificate on client machines.

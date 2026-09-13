@@ -84,6 +84,10 @@ secure-secrets:
 	@find ./secrets -type f \( -name '*.key' -o -name '*.txt' \) -exec chmod 600 {} +
 	@find ./secrets -type f \( -name '*.crt' -o -name '*.csr' -o -name '*.srl' \) -exec chmod 644 {} +
 
+purge-secrets:
+	@echo -e "$(RED)Removing all local credentials and TLS material...$(RESET)"
+	rm -rf ./secrets
+
 init-secrets:
 	@install -m 700 -d ./secrets
 	@for name in $(SECRET_NAMES); do \
@@ -149,4 +153,4 @@ check-data-root:
 		exit 1; \
 	fi
 
-.PHONY: all up up-mac status status-mac down down-mac clean clean-mac fclean fclean-mac prune re secure-secrets init-secrets setup check-data-root
+.PHONY: all up up-mac status status-mac down down-mac clean clean-mac fclean fclean-mac prune re secure-secrets purge-secrets init-secrets setup check-data-root

@@ -155,7 +155,10 @@ The macOS target skips the Linux data-root check and uses the separate `inceptio
 | `make re` | Run `fclean`, then rebuild and start | **Deleted and recreated** |
 | `make setup` | Generate the private CA and TLS server material | Unchanged |
 | `make secure-secrets` | Apply restrictive permissions under `secrets/` | Unchanged |
+| `make purge-secrets` | Delete all local passwords, certificates, and private keys under `secrets/` | Unchanged |
 | `make prune` | Prune unused images, containers, networks, and volumes daemon-wide | May delete unrelated unused data |
+
+`make purge-secrets` is intentionally separate from `clean`, `fclean`, and `re`. After using it, run `make setup` before starting the stack. The command creates a new private CA, so clients that trusted the previous CA must replace it with the newly generated certificate.
 
 The `-mac` variants perform the corresponding operation against `srcs/docker-compose.mac.yml`.
 
