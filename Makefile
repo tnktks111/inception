@@ -104,21 +104,38 @@ setup: init-secrets
 	@mkdir -p ./secrets/my-ca
 	@umask 077; openssl genrsa 4096 > ./secrets/my-ca/my-ca.key
 	@openssl req -new -key ./secrets/my-ca/my-ca.key -subj "/CN=MyPrivateCA" > ./secrets/my-ca/my-ca.csr
-	@cat ./secrets/my-ca/my-ca.csr | openssl x509 -req -signkey ./secrets/my-ca/my-ca.key -days=3650 > ./secrets/my-ca/my-ca.crt
+	@printf '%s\n' \
+		'basicConstraints = critical, CA:TRUE, pathlen:0' \
+		'keyUsage = critical, keyCertSign, cRLSign' \
+		'subjectKeyIdentifier = hash' \
+		| openssl x509 -req \
+			-in ./secrets/my-ca/my-ca.csr \
+			-signkey ./secrets/my-ca/my-ca.key \
+			-sha256 \
+			-days 3650 \
+			-extfile /dev/stdin \
+			-out ./secrets/my-ca/my-ca.crt
 
 	@echo -e "$(CYAN)[2/2] Generating private server key and certificate...$(RESET)"
 	@mkdir -p ./secrets/nginx
 	@umask 077; openssl genrsa 4096 > ./secrets/nginx/server.key
 	@openssl req -new -key ./secrets/nginx/server.key -subj "/CN=$(DOMAIN_NAME)" > ./secrets/nginx/server.csr 
-	@echo "subjectAltName = DNS:$(DOMAIN_NAME)" > san.txt
-	@openssl x509 -req -in ./secrets/nginx/server.csr \
-		-CA ./secrets/my-ca/my-ca.crt \
-		-CAkey ./secrets/my-ca/my-ca.key \
-		-CAcreateserial \
-		-days 398 \
-		-extfile san.txt \
-		-out ./secrets/nginx/server.crt
-	@rm san.txt
+	@printf '%s\n' \
+		'basicConstraints = critical, CA:FALSE' \
+		'keyUsage = critical, digitalSignature, keyEncipherment' \
+		'extendedKeyUsage = serverAuth' \
+		'subjectKeyIdentifier = hash' \
+		'authorityKeyIdentifier = keyid, issuer' \
+		'subjectAltName = DNS:$(DOMAIN_NAME)' \
+		| openssl x509 -req \
+			-in ./secrets/nginx/server.csr \
+			-CA ./secrets/my-ca/my-ca.crt \
+			-CAkey ./secrets/my-ca/my-ca.key \
+			-CAcreateserial \
+			-sha256 \
+			-days 398 \
+			-extfile /dev/stdin \
+			-out ./secrets/nginx/server.crt
 	@$(MAKE) secure-secrets
 
 	@echo -e "$(GREEN)Done!$(RESET)"
